@@ -11,8 +11,8 @@
 	dependencies {
     	implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
 	}
-
-
+- Copy file model to assets folder
+  
 - `MainActivity`
   - Import:
   	```java 
@@ -44,7 +44,7 @@
 	int[] getChambersList();
 
 	// get ef value
-	int getEF();
+	float getEF();
 
 	// get image that has maximum/minimum blood area
 	Bitmap getMaxImage();
