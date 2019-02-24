@@ -1,16 +1,11 @@
-package info.androidhive.androidcamera.AIUtils;
+package info.androidhive.androidcamera;
 
-import android.annotation.SuppressLint;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
-
 import org.tensorflow.lite.Interpreter;
-
-import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
@@ -30,34 +25,51 @@ public class ImageClassifier {
 
     private static final int IMAGE_MEAN = 128;
     private static final float IMAGE_STD = 128.0f;
-    private static final int CLASSIFIER_INPUT_WIDTH = 224;
-    private static final int CLASSIFIER_INPUT_HEIGHT = 224;
+    private static final int INPUT_WIDTH = 224;
+    private static final int INPUT_HEIGHT = 224;
 
-    private static Interpreter classifier_interpreter;
+    private static Interpreter interpreter;
 
     private ImageClassifier() {
 
     }
+    private List<Integer> chamberList;
+    private List<Bitmap> imageList;
 
     public ImageClassifier(AssetManager assetManager) throws IOException {
         try {
-            classifier_interpreter = new Interpreter(loadModelFile(assetManager, CLASSIFIER_MODEL_PATH), new Interpreter.Options());
+            interpreter = new Interpreter(loadModelFile(assetManager, CLASSIFIER_MODEL_PATH), new Interpreter.Options());
         } catch (IOException e) {
             e.printStackTrace();
         }
+        this.chamberList = new ArrayList<>();
+        this.imageList = new ArrayList<>();
     }
 
-    public int classify(Bitmap bitmap) {
-        bitmap = Bitmap.createScaledBitmap(bitmap,CLASSIFIER_INPUT_WIDTH,CLASSIFIER_INPUT_HEIGHT,false);
-        ByteBuffer byteBuffer = convertBitmapToByteBuffer(bitmap);
-        float [][] result = new float[1][3];
-        classifier_interpreter.run(byteBuffer, result);
-        return getResult(result);
+    public void feed(List<Bitmap> inputList) {
+        this.imageList = inputList;
+        this.chamberList = new ArrayList<>();
+    }
+
+    public void run() {
+        for (Bitmap input : imageList) {
+            input = Bitmap.createScaledBitmap(input, INPUT_WIDTH, INPUT_HEIGHT, false);
+            ByteBuffer byteBuffer = convertBitmapToByteBuffer(input);
+
+            float[][] result = new float[1][3];
+            interpreter.run(byteBuffer, result);
+
+            chamberList.add(getResult(result));
+        }
+    }
+
+    public List<Integer> getChamberList() {
+        return this.chamberList;
     }
 
     public void close() {
-        classifier_interpreter.close();
-        classifier_interpreter = null;
+        interpreter.close();
+        interpreter = null;
     }
 
     private MappedByteBuffer loadModelFile(AssetManager assetManager, String modelPath) throws IOException {
@@ -73,16 +85,16 @@ public class ImageClassifier {
         ByteBuffer byteBuffer;
 
         if (QUANTIZED) {
-            byteBuffer = ByteBuffer.allocateDirect(BATCH_SIZE * CLASSIFIER_INPUT_WIDTH * CLASSIFIER_INPUT_HEIGHT * PIXEL_SIZE);
+            byteBuffer = ByteBuffer.allocateDirect(BATCH_SIZE * INPUT_HEIGHT * INPUT_WIDTH * PIXEL_SIZE);
         } else {
-            byteBuffer = ByteBuffer.allocateDirect(4 * BATCH_SIZE * CLASSIFIER_INPUT_WIDTH * CLASSIFIER_INPUT_HEIGHT * PIXEL_SIZE);
+            byteBuffer = ByteBuffer.allocateDirect(4 * BATCH_SIZE * INPUT_HEIGHT * INPUT_WIDTH * PIXEL_SIZE);
         }
 
         byteBuffer.order(ByteOrder.nativeOrder());
-        int[] intValues = new int[CLASSIFIER_INPUT_WIDTH * CLASSIFIER_INPUT_HEIGHT];
+        int[] intValues = new int[INPUT_HEIGHT * INPUT_WIDTH];
         bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
         int pixel = 0;
-        for (int i = 0; i < CLASSIFIER_INPUT_WIDTH * CLASSIFIER_INPUT_HEIGHT; ++i) {
+        for (int i = 0; i < INPUT_HEIGHT * INPUT_WIDTH; ++i) {
             final int val = intValues[pixel++];
             if (QUANTIZED){
                 byteBuffer.put((byte) ((val >> 16) & 0xFF));

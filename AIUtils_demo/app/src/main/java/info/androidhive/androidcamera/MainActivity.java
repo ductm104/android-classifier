@@ -8,8 +8,12 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.View;
@@ -33,8 +37,7 @@ import android.graphics.Bitmap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import android.support.v4.app.ActivityCompat;
-import info.androidhive.androidcamera.AIUtils.*;
+//import android.support.v4.app.ActivityCompat;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -69,8 +72,11 @@ public class MainActivity extends AppCompatActivity {
     private AlertDialog ad;
 
     private Executor executor = Executors.newSingleThreadExecutor();
-    private AIutils aiUtils;
-    private segment segmentator;
+
+    private ImageSegmentator segmentator;
+    private ImageClassifier classifier;
+
+    private Handler myHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         ActivityCompat.requestPermissions(MainActivity.this,
-                new String[]{ Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 0);
 
         // Checking availability of the camera
@@ -117,8 +123,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if(requestCode == 0){
-            if(grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == 0) {
+            if (grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "App need connect internet.", Toast.LENGTH_SHORT).show();
             }
         }
@@ -132,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
             if (savedInstanceState.containsKey(KEY_VIDEO_STORAGE_PATH)) {
                 videoStoragePath = savedInstanceState.getString(KEY_VIDEO_STORAGE_PATH);
                 if (!TextUtils.isEmpty(videoStoragePath)) {
-                    if(videoStoragePath.substring(videoStoragePath.lastIndexOf(".")).equals("." + IMAGE_EXTENSION)) {
+                    if (videoStoragePath.substring(videoStoragePath.lastIndexOf(".")).equals("." + IMAGE_EXTENSION)) {
                         previewCapturedImage();
                     }
                 }
@@ -262,13 +268,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-//                    segmentator = new segment(getAssets(),
-//                            MODEL_PATH,
-//                            INPUT_SIZE_X,
-//                            INPUT_SIZE_Y,
-//                            QUANT,
-//                            false);
-                    aiUtils = new AIutils(getAssets());
+                    segmentator = new ImageSegmentator(getAssets());
+                    classifier = new ImageClassifier(getAssets());
                 } catch (final Exception e) {
                     throw new RuntimeException("Error initializing TensorFlow!", e);
                 }
@@ -276,48 +277,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-//    private void predict(Bitmap bitmap) {
-//        Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE_Y, INPUT_SIZE_X, false);
-//
-//        imgPreview.setImageBitmap(resizedBitmap);
-//        imgMask.setImageBitmap(segmentator.segmentImage(resizedBitmap));
-//    }
-
     private void predict(Bitmap bitmap) {
-        imgPreview.setImageBitmap(bitmap);
+        imgPreview.setImageBitmap(Bitmap.createScaledBitmap(bitmap, 256, 512, false));
 
         List<Bitmap> list = new ArrayList<>();
         list.add(bitmap);
 
-        aiUtils.feed(list);
-        aiUtils.run();
+        classifier.feed(list);
+        segmentator.feed(list);
 
-        imgMask.setImageBitmap(aiUtils.getMaxImage());
-        txtPrediction.setText(aiUtils.getChambersList().get(0).toString());
+        classifier.run();
+        segmentator.run();
 
-//        Thread thread = new Thread(){
-//            @Override
-//            public void run() {
-//                try {
-//                    synchronized (this) {
-//                        wait(0);
-//
-//                        runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                aiUtils.run();
-//                                imgMask.setImageBitmap(aiUtils.getMaxImage());
-//                            }
-//                        });
-//
-//                    }
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//                //Intent mainActivity = new Intent(getApplicationContext(),MainActivity.class);
-//                //startActivity(mainActivity);
-//            };
-//        };
-//        thread.start();
+        imgMask.setImageBitmap(segmentator.getMaxImage());
+        txtPrediction.setText(classifier.getChamberList().get(0).toString());
     }
+
 }

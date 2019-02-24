@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/android_segmentation.iml" filepath="$PROJECT_DIR$/android_segmentation.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AIUtils_demo.iml" filepath="$PROJECT_DIR$/AIUtils_demo.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
